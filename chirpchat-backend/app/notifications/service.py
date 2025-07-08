@@ -22,7 +22,7 @@ class NotificationService:
 
     async def _get_active_subscriptions(self, user_id: UUID) -> List[dict]:
         try:
-            resp = await db_manager.admin_client.table("push_subscriptions").select("*").eq("user_id", str(user_id)).eq("is_active", True).execute()
+            resp = db_manager.admin_client.table("push_subscriptions").select("*").eq("user_id", str(user_id)).eq("is_active", True).execute()
             return resp.data or []
         except Exception as e:
             logger.error(f"Error fetching subscriptions for user {user_id}: {e}")
@@ -30,7 +30,7 @@ class NotificationService:
 
     async def _get_user_notification_settings(self, user_id: UUID) -> Optional[dict]:
         try:
-            resp = await db_manager.get_table("user_notification_settings").select("*").eq("user_id", str(user_id)).maybe_single().execute()
+            resp = db_manager.get_table("user_notification_settings").select("*").eq("user_id", str(user_id)).maybe_single().execute()
             return resp.data
         except Exception as e:
             logger.error(f"Error fetching notification settings for user {user_id}: {e}")
@@ -91,7 +91,7 @@ class NotificationService:
     
     async def _get_recipients_for_chat(self, chat_id: UUID, exclude_user_id: UUID) -> List[UUID]:
         try:
-            resp = await db_manager.get_table("chat_participants").select("user_id").eq("chat_id", str(chat_id)).neq("user_id", str(exclude_user_id)).execute()
+            resp = db_manager.get_table("chat_participants").select("user_id").eq("chat_id", str(chat_id)).neq("user_id", str(exclude_user_id)).execute()
             return [UUID(row['user_id']) for row in resp.data]
         except Exception as e:
             logger.error(f"Error fetching recipients for chat {chat_id}: {e}")

@@ -1,0 +1,13 @@
+diff --git a/node_modules/@stencil/core/internal/client/index.js b/node_modules/@stencil/core/internal/client/index.js
+index 7a5ea79..1d7a5b3 100644
+--- a/node_modules/@stencil/core/internal/client/index.js
++++ b/node_modules/@stencil/core/internal/client/index.js
+@@ -155,7 +155,7 @@
+     /* webpackInclude: /\.entry\.js$/ */
+     /* webpackExclude: /\.system\.entry\.js$/ */
+     /* webpackMode: "lazy" */
+-    `./${bundleId}.entry.js${BUILD5.hotModuleReplacement && hmrVersionId ? `?s-hmr=${hmrVersionId}` : ''}`
++    `./${bundleId}.entry.js`
+   ).then(
+     (importedModule) => {
+       if (!BUILD5.hotModuleReplacement) {

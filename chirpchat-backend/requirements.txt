@@ -23,7 +23,6 @@ sse-starlette==2.1.0
 prometheus-fastapi-instrumentator
 mutagen
 aiofiles
-python-magic-bin
 firebase-admin==6.4.0
 
     

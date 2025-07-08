@@ -37,18 +37,25 @@ Instrumentator(excluded_handlers=["/metrics", "/health"]).instrument(app).expose
 # Conditionally configure CORS based on the environment
 if settings.ENVIRONMENT == "development":
     logger.info("Running in development mode, allowing all origins for CORS.")
-    origins_config = {"allow_origins": ["*"]}
+    cors_config = {
+        "allow_origins": ["*"],
+        "allow_credentials": True,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"],
+    }
 else:
-    # Use a strict list for production
-    origins_config = {
+    cors_config = {
         "allow_origins": [
             "http://localhost:3000",
             "http://localhost:9002",
             "capacitor://localhost",
             "http://localhost",
-            "https://kuchlu.vercel.app", # Example production domain
+            "https://kuchlu.vercel.app",
         ],
-        "allow_origin_regex": r"https?:\/\/.*\.vercel\.app"
+        "allow_origin_regex": r"https?:\/\/.*\\.vercel\\.app",
+        "allow_credentials": True,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"],
     }
 
 
@@ -59,11 +66,9 @@ async def startup_event():
 
 app.add_middleware(
     CORSMiddleware,
-    **origins_config,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    **cors_config
 )
+
 app.add_middleware(LoggingMiddleware)
 
 @app.exception_handler(Exception)

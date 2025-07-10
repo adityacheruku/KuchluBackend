@@ -1,6 +1,5 @@
-
 from pydantic import BaseModel, EmailStr, Field, validator
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 import re
@@ -22,11 +21,9 @@ class VerifyOtpRequest(PhoneSchema):
 class VerifyOtpResponse(BaseModel):
     registration_token: str
 
+# Firebase Authentication Schemas
 class FirebaseSignupRequest(BaseModel):
     firebase_token: str = Field(..., description="Firebase ID token from client")
-    display_name: str = Field(..., description="User's chosen display name")
-    password: str = Field(..., min_length=8, description="User's chosen password")
-
 
 class FirebaseLoginRequest(BaseModel):
     firebase_token: str = Field(..., description="Firebase ID token from client")
@@ -91,3 +88,14 @@ class TokenData(BaseModel):
     phone: Optional[str] = None
     user_id: Optional[UUID] = None
     token_type: Optional[str] = None
+
+class ActivityHistoryEvent(BaseModel):
+    id: str
+    type: str
+    timestamp: datetime
+    user_id: str
+    mood: Optional[str] = None
+    recipient_id: Optional[str] = None
+    sender_id: Optional[str] = None
+
+    

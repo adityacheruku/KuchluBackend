@@ -5,6 +5,8 @@ from pywebpush import webpush, WebPushException
 from typing import List, Optional
 from datetime import datetime
 import pytz
+import firebase_admin
+from firebase_admin import messaging
 
 from app.config import settings
 from app.database import db_manager
@@ -113,14 +115,59 @@ class NotificationService:
         payload = {"type": "message", "title": f"New message from {sender.display_name}", "options": {"body": notification_body, "icon": sender.avatar_url or "/icons/icon-192x192.png", "badge": "/icons/badge-96x96.png", "tag": f"conversation-{chat_id}", "data": {"conversationId": str(chat_id)}}}
         for recipient_id in recipients:
             await self._send_notification_to_user(recipient_id, "messages", payload)
+            # FCM push
+            user_resp = db_manager.get_table("users").select("fcm_token").eq("id", str(recipient_id)).maybe_single().execute()
+            fcm_token = user_resp.data.get("fcm_token") if user_resp and user_resp.data else None
+            if fcm_token:
+                self.send_fcm_notification(
+                    token=fcm_token,
+                    title=f"New message from {sender.display_name}",
+                    body=notification_body,
+                    data={"chat_id": str(chat_id)}
+                )
 
     async def send_mood_change_notification(self, user: UserPublic, new_mood: str):
         if not user.partner_id: return
         payload = {"type": "mood_update", "title": f"{user.display_name} has updated their mood!", "options": {"body": f"They are now feeling: {new_mood}", "icon": user.avatar_url, "tag": f"mood-{user.id}"}}
         await self._send_notification_to_user(user.partner_id, "mood_updates", payload)
+        # FCM push
+        user_resp = db_manager.get_table("users").select("fcm_token").eq("id", str(user.partner_id)).maybe_single().execute()
+        fcm_token = user_resp.data.get("fcm_token") if user_resp and user_resp.data else None
+        if fcm_token:
+            self.send_fcm_notification(
+                token=fcm_token,
+                title=f"{user.display_name} updated their mood!",
+                body=f"They are now feeling: {new_mood}",
+                data={"user_id": str(user.id), "mood": new_mood}
+            )
 
     async def send_thinking_of_you_notification(self, sender: UserPublic, recipient_id: UUID):
          payload = {"type": "thinking_of_you", "title": f"{sender.display_name} is thinking of you!", "options": {"body": "Send a thought back from the app.", "icon": sender.avatar_url, "badge": "/icons/badge-96x96.png", "tag": f"ping-{sender.id}-{recipient_id}", "data": {"senderId": str(sender.id)}}}
          await self._send_notification_to_user(recipient_id, "thinking_of_you", payload)
+         # FCM push
+         user_resp = db_manager.get_table("users").select("fcm_token").eq("id", str(recipient_id)).maybe_single().execute()
+         fcm_token = user_resp.data.get("fcm_token") if user_resp and user_resp.data else None
+         if fcm_token:
+             self.send_fcm_notification(
+                 token=fcm_token,
+                 title=f"{sender.display_name} is thinking of you!",
+                 body="Send a thought back from the app.",
+                 data={"sender_id": str(sender.id)}
+             )
+
+    def send_fcm_notification(token: str, title: str, body: str, data: dict = None):
+        """Send a push notification to a device via FCM."""
+        try:
+            message = messaging.Message(
+                notification=messaging.Notification(title=title, body=body),
+                token=token,
+                data=data or {}
+            )
+            response = messaging.send(message)
+            logger.info(f"Sent FCM notification to {token}: {response}")
+            return response
+        except Exception as e:
+            logger.error(f"Error sending FCM notification: {e}", exc_info=True)
+            return None
 
 notification_service = NotificationService()

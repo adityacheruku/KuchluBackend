@@ -3,8 +3,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 import random
+from typing import List
 
-from app.auth.schemas import UserLogin, UserUpdate, UserPublic, Token, PhoneSchema, VerifyOtpRequest, VerifyOtpResponse, CompleteRegistrationRequest, PasswordChangeRequest, DeleteAccountRequest, FirebaseSignupRequest, FirebaseLoginRequest
+from app.auth.schemas import UserLogin, UserUpdate, UserPublic, Token, PhoneSchema, VerifyOtpRequest, VerifyOtpResponse, CompleteRegistrationRequest, PasswordChangeRequest, DeleteAccountRequest, FirebaseSignupRequest, FirebaseLoginRequest, ActivityHistoryEvent
 from app.auth.dependencies import get_current_user, get_current_active_user, get_user_from_refresh_token
 from app.utils.security import get_password_hash, verify_password, create_access_token, create_refresh_token, create_registration_token, verify_registration_token
 from app.database import db_manager
@@ -19,6 +20,60 @@ from app.auth.firebase_service import firebase_service
 
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 user_router = APIRouter(prefix="/users", tags=["Users"])
+
+@user_router.get("/me/activity-history", response_model=List[ActivityHistoryEvent], summary="Get user activity history")
+async def get_activity_history(current_user: UserPublic = Depends(get_current_active_user)):
+    """
+    Retrieves a combined history of mood updates and 'Thinking of You' pings
+    for the current user and their partner.
+    """
+    user_id = str(current_user.id)
+    partner_id = str(current_user.partner_id) if current_user.partner_id else None
+
+    if not partner_id:
+        # If there's no partner, only fetch the user's own mood updates
+        mood_updates_resp = db_manager.admin_client.table("mood_analytics").select("id, created_at, mood_name, source").eq("user_id", user_id).eq("source", "profile_update").execute()
+        mood_events = mood_updates_resp.data or []
+    else:
+        # Fetch events for both user and partner
+        mood_updates_resp = db_manager.admin_client.table("mood_analytics").select("id, created_at, mood_name, source, user_id").in_("user_id", [user_id, partner_id]).execute()
+        mood_events = mood_updates_resp.data or []
+
+    history_events: List[ActivityHistoryEvent] = []
+
+    for event in mood_events:
+        event_user_id = str(event['user_id'])
+        if event.get('source') == 'profile_update' and event_user_id == user_id:
+            history_events.append(ActivityHistoryEvent(
+                id=str(event['id']),
+                type='mood_update',
+                mood=event.get('mood_name'),
+                timestamp=event['created_at'],
+                user_id=user_id
+            ))
+        elif event.get('source') == 'assistive_touch_ping':
+            if event_user_id == user_id:
+                history_events.append(ActivityHistoryEvent(
+                    id=str(event['id']),
+                    type='ping_sent',
+                    recipient_id=partner_id,
+                    timestamp=event['created_at'],
+                    user_id=user_id
+                ))
+            elif partner_id and event_user_id == partner_id:
+                history_events.append(ActivityHistoryEvent(
+                    id=str(event['id']),
+                    type='ping_received',
+                    sender_id=partner_id,
+                    timestamp=event['created_at'],
+                    user_id=user_id
+                ))
+    
+    # Sort events chronologically descending
+    history_events.sort(key=lambda x: x.timestamp, reverse=True)
+    
+    return history_events
+
 
 @auth_router.post("/firebase/signup", response_model=Token, summary="Sign up with Firebase")
 async def firebase_signup(request_data: FirebaseSignupRequest):
@@ -138,7 +193,7 @@ async def send_otp(phone_data: PhoneSchema):
     logger.info(f"OTP requested for phone: {phone}")
     
     existing_user_resp = db_manager.get_table("users").select("id").eq("phone", phone).maybe_single().execute()
-    if existing_user_resp.data and existing_user_resp.data.get("firebase_uid"):
+    if existing_user_resp.data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number already registered.")
 
     otp = f"{random.randint(100000, 999999)}"
@@ -182,7 +237,7 @@ async def complete_registration(reg_data: CompleteRegistrationRequest):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired registration token.")
 
     existing_user_resp = db_manager.get_table("users").select("id").eq("phone", phone).maybe_single().execute()
-    if existing_user_resp and existing_user_resp.data:
+    if existing_user_resp.data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number was registered by another user. Please start over.")
 
     hashed_password = get_password_hash(reg_data.password)
@@ -343,11 +398,6 @@ async def upload_avatar_route(file: UploadFile = File(...), current_user: UserPu
     await ws_manager.broadcast_user_profile_update(user_id=current_user.id, updated_data={"avatar_url": refreshed_user_data["avatar_url"]})
     return UserPublic.model_validate(refreshed_user_data)
 
-@user_router.post("/me/fcm-token", status_code=status.HTTP_204_NO_CONTENT)
-async def save_fcm_token(token: str, current_user: UserPublic = Depends(get_current_active_user)):
-    db_manager.get_table("users").update({"fcm_token": token, "updated_at": datetime.now(timezone.utc).isoformat()}).eq("id", str(current_user.id)).execute()
-    return None
-
 @user_router.post("/{recipient_user_id}/ping-thinking-of-you", status_code=status.HTTP_200_OK)
 async def http_ping_thinking_of_you(recipient_user_id: UUID, current_user: UserPublic = Depends(get_current_active_user)):
     logger.info(f"User {current_user.id} sending 'Thinking of You' ping to user {recipient_user_id} via HTTP.")
@@ -364,3 +414,5 @@ async def http_ping_thinking_of_you(recipient_user_id: UUID, current_user: UserP
     )
     await notification_service.send_thinking_of_you_notification(sender=current_user, recipient_id=recipient_user_id)
     return {"status": "Ping sent"}
+
+    

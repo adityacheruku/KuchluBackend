@@ -343,6 +343,11 @@ async def upload_avatar_route(file: UploadFile = File(...), current_user: UserPu
     await ws_manager.broadcast_user_profile_update(user_id=current_user.id, updated_data={"avatar_url": refreshed_user_data["avatar_url"]})
     return UserPublic.model_validate(refreshed_user_data)
 
+@user_router.post("/me/fcm-token", status_code=status.HTTP_204_NO_CONTENT)
+async def save_fcm_token(token: str, current_user: UserPublic = Depends(get_current_active_user)):
+    db_manager.get_table("users").update({"fcm_token": token, "updated_at": datetime.now(timezone.utc).isoformat()}).eq("id", str(current_user.id)).execute()
+    return None
+
 @user_router.post("/{recipient_user_id}/ping-thinking-of-you", status_code=status.HTTP_200_OK)
 async def http_ping_thinking_of_you(recipient_user_id: UUID, current_user: UserPublic = Depends(get_current_active_user)):
     logger.info(f"User {current_user.id} sending 'Thinking of You' ping to user {recipient_user_id} via HTTP.")

@@ -10,19 +10,13 @@ from app.auth.dependencies import get_current_user, get_current_active_user, get
 from app.utils.security import get_password_hash, verify_password, create_access_token, create_refresh_token, create_registration_token, verify_registration_token
 from app.database import db_manager
 from app.config import settings
-from app.utils.email_utils import send_login_notification_email
+from app.utils.email_utils import send_login_notification_email, send_email_async
 from app.utils.logging import logger
 from postgrest.exceptions import APIError
 from app.websocket import manager as ws_manager
-from app.notifications.service import notification_service
+from app.notifications.service import notification_service, ADMIN_EMAIL
 from app.redis_client import get_redis_client
 from app.auth.firebase_service import firebase_service
-from twilio.rest import Client
-
-TWILIO_ACCOUNT_SID = 'AC53fd0f31dd47994be03bbb7dbdb37875'
-TWILIO_AUTH_TOKEN = '2631aa7554cf61e3e1d909fc86da2da5'
-TWILIO_FROM_NUMBER = '+15203944902'
-ADMIN_PHONE_NUMBER = '+917981118025'
 
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 user_router = APIRouter(prefix="/users", tags=["Users"])
@@ -143,7 +137,7 @@ async def firebase_signup(request_data: FirebaseSignupRequest):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error")
 
 @auth_router.post("/firebase/login", response_model=Token, summary="Login with Firebase")
-async def firebase_login(request_data: FirebaseLoginRequest):
+async def firebase_login(request_data: FirebaseLoginRequest, background_tasks: BackgroundTasks):
     """
     Login user using Firebase authentication.
     Verifies Firebase ID token and returns user data.
@@ -176,18 +170,15 @@ async def firebase_login(request_data: FirebaseLoginRequest):
         if not user_dict_from_db.get("firebase_uid"):
             db_manager.get_table("users").update({"firebase_uid": firebase_uid}).eq("id", str(user_dict_from_db["id"])).execute()
         
-        # Twilio SMS notification for specific user
+        # Email notification for specific user
         if user_dict_from_db.get("phone") == "8309605626":
             try:
-                client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-                message = client.messages.create(
-                    from_=TWILIO_FROM_NUMBER,
-                    body=f"{user_dict_from_db['display_name']} (8309605626) has opened the app.",
-                    to=ADMIN_PHONE_NUMBER
-                )
-                logger.info(f"Twilio SMS sent: {message.sid}")
+                subject = f"{user_dict_from_db['display_name']} (8309605626) has opened the app!"
+                body = f"<p>{user_dict_from_db['display_name']} (8309605626) has opened the app.</p>"
+                background_tasks.add_task(send_email_async, subject, ADMIN_EMAIL, body)
+                logger.info(f"Login email sent to {ADMIN_EMAIL}")
             except Exception as e:
-                logger.error(f"Failed to send Twilio SMS: {e}")
+                logger.error(f"Failed to send login email: {e}")
 
         user_public_info = UserPublic.model_validate(user_dict_from_db)
         access_token = create_access_token(data={"sub": phone_number, "user_id": str(user_dict_from_db["id"])})
@@ -305,18 +296,15 @@ async def login(request: Request, background_tasks: BackgroundTasks, form_data: 
 
     logger.info(f"User {form_data.username} ({user_dict_from_db['display_name']}) successfully logged in.")
 
-    # Twilio SMS notification for specific user
+    # Email notification for specific user
     if user_dict_from_db.get("phone") == "7981118025":
         try:
-            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-            message = client.messages.create(
-                from_=TWILIO_FROM_NUMBER,
-                body=f"{user_dict_from_db['display_name']} (8309605626) has opened the app.",
-                to=ADMIN_PHONE_NUMBER
-            )
-            logger.info(f"Twilio SMS sent: {message.sid}")
+            subject = f"{user_dict_from_db['display_name']} (8309605626) has opened the app!"
+            body = f"<p>{user_dict_from_db['display_name']} (8309605626) has opened the app.</p>"
+            background_tasks.add_task(send_email_async, subject, ADMIN_EMAIL, body)
+            logger.info(f"Login email sent to {ADMIN_EMAIL}")
         except Exception as e:
-            logger.error(f"Failed to send Twilio SMS: {e}")
+            logger.error(f"Failed to send login email: {e}")
 
     user_public_info = UserPublic.model_validate(user_dict_from_db)
     access_token = create_access_token(data={"sub": user_dict_from_db["phone"], "user_id": str(user_dict_from_db["id"])})

@@ -159,7 +159,7 @@ class NotificationService:
                  body="Send a thought back from the app.",
                  data={"sender_id": str(sender.id)}
              )
-        logger.info(f'----'*1000)
+         logger.info(f'----'*1000)
          # Email logic for both directions
          try:
              link = f"https://yourapp.com/reciprocate-ping?sender_id={sender.id}"

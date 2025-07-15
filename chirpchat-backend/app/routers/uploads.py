@@ -139,3 +139,19 @@ async def delete_cloudinary_asset(public_id: str, resource_type: str):
             logger.error(f"Cloudinary API reported an error for asset {public_id}: {result.get('error', 'Unknown error')}")
     except Exception as e:
         logger.error(f"Exception during Cloudinary deletion for asset {public_id}: {e}", exc_info=True)
+
+import cloudinary.uploader
+
+async def upload_avatar_to_cloudinary(file):
+    """
+    Uploads an avatar image to Cloudinary and returns the secure URL.
+    """
+    contents = await file.read()
+    result = cloudinary.uploader.upload(
+        contents,
+        folder="avatars",
+        resource_type="image",
+        overwrite=True,
+        format="png"
+    )
+    return result['secure_url']

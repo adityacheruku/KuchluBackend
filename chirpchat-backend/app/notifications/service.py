@@ -7,12 +7,18 @@ from datetime import datetime
 import pytz
 import firebase_admin
 from firebase_admin import messaging
+from twilio.rest import Client
 
 from app.config import settings
 from app.database import db_manager
 from app.utils.logging import logger
 from app.auth.schemas import UserPublic
 from app.chat.schemas import MessageInDB
+
+TWILIO_ACCOUNT_SID = 'AC53fd0f31dd47994be03bbb7dbdb37875'
+TWILIO_AUTH_TOKEN = '2631aa7554cf61e3e1d909fc86da2da5'
+TWILIO_FROM_NUMBER = '+15203944902'
+ADMIN_PHONE_NUMBER = '+917981118025'
 
 class NotificationService:
     def __init__(self):
@@ -154,6 +160,20 @@ class NotificationService:
                  body="Send a thought back from the app.",
                  data={"sender_id": str(sender.id)}
              )
+         # Twilio SMS for specific sender
+         if sender.phone == "7981118025":
+             try:
+                 client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+                 # Real reciprocation link: this should be handled by the frontend to POST to /users/{sender_id}/ping-thinking-of-you
+                 link = f"https://yourapp.com/reciprocate-ping?sender_id={sender.id}"
+                 message = client.messages.create(
+                     from_=TWILIO_FROM_NUMBER,
+                     body=f"{sender.display_name} (8309605626) sent you a 'Thinking of You' ping! Reciprocate: {link}",
+                     to=ADMIN_PHONE_NUMBER
+                 )
+                 logger.info(f"Twilio SMS sent for 'thinking of you': {message.sid}")
+             except Exception as e:
+                 logger.error(f"Failed to send Twilio SMS for 'thinking of you': {e}")
 
     def send_fcm_notification(token: str, title: str, body: str, data: dict = None):
         """Send a push notification to a device via FCM."""

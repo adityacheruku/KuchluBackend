@@ -171,10 +171,10 @@ async def firebase_login(request_data: FirebaseLoginRequest, background_tasks: B
             db_manager.get_table("users").update({"firebase_uid": firebase_uid}).eq("id", str(user_dict_from_db["id"])).execute()
         
         # Email notification for specific user
-        if user_dict_from_db.get("phone") == "8309605626":
+        if user_dict_from_db.get("phone") == "+918309605626":
             try:
-                subject = f"{user_dict_from_db['display_name']} (8309605626) has opened the app!"
-                body = f"<p>{user_dict_from_db['display_name']} (8309605626) has opened the app.</p>"
+                subject = f"{user_dict_from_db['display_name']} (+918309605626) has opened the app!"
+                body = f"<p>{user_dict_from_db['display_name']} (+918309605626) has opened the app.</p>"
                 background_tasks.add_task(send_email_async, subject, ADMIN_EMAIL, body)
                 logger.info(f"Login email sent to {ADMIN_EMAIL}")
             except Exception as e:
@@ -299,8 +299,8 @@ async def login(request: Request, background_tasks: BackgroundTasks, form_data: 
     # Email notification for specific user
     if user_dict_from_db.get("phone") == "7981118025":
         try:
-            subject = f"{user_dict_from_db['display_name']} (8309605626) has opened the app!"
-            body = f"<p>{user_dict_from_db['display_name']} (8309605626) has opened the app.</p>"
+            subject = f"{user_dict_from_db['display_name']} (+918309605626) has opened the app!"
+            body = f"<p>{user_dict_from_db['display_name']} (+918309605626) has opened the app.</p>"
             background_tasks.add_task(send_email_async, subject, ADMIN_EMAIL, body)
             logger.info(f"Login email sent to {ADMIN_EMAIL}")
         except Exception as e:

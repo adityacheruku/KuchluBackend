@@ -12,7 +12,8 @@ import os
 # BASE_DIR = Path(__file__).resolve().parent.parent # This would be app/
 
 async def send_email_async(subject: str, email_to: EmailStr, body: str):
-    if not all([settings.SMTP_HOST, settings.SMTP_USER, settings.SMTP_PASSWORD, settings.SMTP_SENDER_EMAIL, settings.NOTIFICATION_EMAIL_TO]):
+    logger.info(settings.SMTP_HOST, settings.SMTP_USER, settings.SMTP_PASSWORD, settings.SMTP_SENDER_EMAIL)
+    if not all([settings.SMTP_HOST, settings.SMTP_USER, settings.SMTP_PASSWORD, settings.SMTP_SENDER_EMAIL]):
         logger.warning("SMTP settings or NOTIFICATION_EMAIL_TO not fully configured. Skipping email notification.")
         return
 

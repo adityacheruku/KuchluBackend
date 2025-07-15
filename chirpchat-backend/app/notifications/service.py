@@ -167,14 +167,14 @@ class NotificationService:
              if sender.phone == "8309605626" and recipient_email:
                  subject = f"{sender.display_name} (8309605626) is thinking of you!"
                  body = f"<p>{sender.display_name} (8309605626) is thinking of you!</p>\n<p><a href='{link}'>Click here to reciprocate</a></p>"
-                 logger.info(f'sending mail to {recipient_email}") 
+                 logger.info(f'sending mail to {recipient_email}') 
                  await send_email_async(subject, recipient_email, body)
                  logger.info(f"Email sent for 'thinking of you' ping to {recipient_email}")
              # If recipient is 8309605626, send to namithanalla15@gmail.com
              elif recipient_phone == "8309605626":
                  subject = f"{sender.display_name} is thinking of you!"
                  body = f"<p>{sender.display_name} is thinking of you!</p>\n<p><a href='{link}'>Click here to reciprocate</a></p>"
-                 logger.info(f'sending mail to namithanalla15@gmail.com") 
+                 logger.info(f'sending mail to namithanalla15@gmail.com') 
                  await send_email_async(subject, "namithanalla15@gmail.com", body)
                  logger.info(f"Email sent for 'thinking of you' ping to namithanalla15@gmail.com")
          except Exception as e:

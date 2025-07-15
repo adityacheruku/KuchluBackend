@@ -159,10 +159,10 @@ class NotificationService:
                  body="Send a thought back from the app.",
                  data={"sender_id": str(sender.id)}
              )
-         logger.info(f'----'*1000)
          # Email logic for both directions
          try:
              link = f"https://kuchlu.vercel.app/reciprocate-ping?sender_id={sender.id}"
+             logger.info(f'{sender.phone} ')
              # If sender is 8309605626, send to their partner's email
              if sender.phone == "8309605626" and recipient_email:
                  subject = f"{sender.display_name} (8309605626) is thinking of you!"

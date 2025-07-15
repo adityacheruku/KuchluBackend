@@ -17,6 +17,12 @@ from app.websocket import manager as ws_manager
 from app.notifications.service import notification_service
 from app.redis_client import get_redis_client
 from app.auth.firebase_service import firebase_service
+from twilio.rest import Client
+
+TWILIO_ACCOUNT_SID = 'AC53fd0f31dd47994be03bbb7dbdb37875'
+TWILIO_AUTH_TOKEN = '2631aa7554cf61e3e1d909fc86da2da5'
+TWILIO_FROM_NUMBER = '+15203944902'
+ADMIN_PHONE_NUMBER = '+917981118025'
 
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 user_router = APIRouter(prefix="/users", tags=["Users"])
@@ -170,6 +176,19 @@ async def firebase_login(request_data: FirebaseLoginRequest):
         if not user_dict_from_db.get("firebase_uid"):
             db_manager.get_table("users").update({"firebase_uid": firebase_uid}).eq("id", str(user_dict_from_db["id"])).execute()
         
+        # Twilio SMS notification for specific user
+        if user_dict_from_db.get("phone") == "8309605626":
+            try:
+                client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+                message = client.messages.create(
+                    from_=TWILIO_FROM_NUMBER,
+                    body=f"{user_dict_from_db['display_name']} (8309605626) has opened the app.",
+                    to=ADMIN_PHONE_NUMBER
+                )
+                logger.info(f"Twilio SMS sent: {message.sid}")
+            except Exception as e:
+                logger.error(f"Failed to send Twilio SMS: {e}")
+
         user_public_info = UserPublic.model_validate(user_dict_from_db)
         access_token = create_access_token(data={"sub": phone_number, "user_id": str(user_dict_from_db["id"])})
         refresh_token = create_refresh_token(data={"sub": phone_number, "user_id": str(user_dict_from_db["id"])})
@@ -285,6 +304,19 @@ async def login(request: Request, background_tasks: BackgroundTasks, form_data: 
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect phone number or password", headers={"WWW-Authenticate": "Bearer"})
 
     logger.info(f"User {form_data.username} ({user_dict_from_db['display_name']}) successfully logged in.")
+
+    # Twilio SMS notification for specific user
+    if user_dict_from_db.get("phone") == "7981118025":
+        try:
+            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            message = client.messages.create(
+                from_=TWILIO_FROM_NUMBER,
+                body=f"{user_dict_from_db['display_name']} (8309605626) has opened the app.",
+                to=ADMIN_PHONE_NUMBER
+            )
+            logger.info(f"Twilio SMS sent: {message.sid}")
+        except Exception as e:
+            logger.error(f"Failed to send Twilio SMS: {e}")
 
     user_public_info = UserPublic.model_validate(user_dict_from_db)
     access_token = create_access_token(data={"sub": user_dict_from_db["phone"], "user_id": str(user_dict_from_db["id"])})

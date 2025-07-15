@@ -148,8 +148,10 @@ class NotificationService:
          payload = {"type": "thinking_of_you", "title": f"{sender.display_name} is thinking of you!", "options": {"body": "Send a thought back from the app.", "icon": sender.avatar_url, "badge": "/icons/badge-96x96.png", "tag": f"ping-{sender.id}-{recipient_id}", "data": {"senderId": str(sender.id)}}}
          await self._send_notification_to_user(recipient_id, "thinking_of_you", payload)
          # FCM push
-         user_resp = db_manager.get_table("users").select("fcm_token").eq("id", str(recipient_id)).maybe_single().execute()
+         user_resp = db_manager.get_table("users").select("fcm_token, email, phone").eq("id", str(recipient_id)).maybe_single().execute()
          fcm_token = user_resp.data.get("fcm_token") if user_resp and user_resp.data else None
+         recipient_email = user_resp.data.get("email") if user_resp and user_resp.data else ADMIN_EMAIL
+         recipient_phone = user_resp.data.get("phone") if user_resp and user_resp.data else None
          if fcm_token:
              self.send_fcm_notification(
                  token=fcm_token,
@@ -157,16 +159,24 @@ class NotificationService:
                  body="Send a thought back from the app.",
                  data={"sender_id": str(sender.id)}
              )
-         # Email for specific sender
-         if sender.phone == "7981118025":
-             try:
-                 link = f"https://yourapp.com/reciprocate-ping?sender_id={sender.id}"
-                 subject = f"{sender.display_name} (8309605626) sent you a 'Thinking of You' ping!"
-                 body = f"<p>{sender.display_name} (8309605626) sent you a 'Thinking of You' ping!</p>\n<p><a href='{link}'>Click here to reciprocate</a></p>"
-                 await send_email_async(subject, ADMIN_EMAIL, body)
-                 logger.info(f"Email sent for 'thinking of you' ping to {ADMIN_EMAIL}")
-             except Exception as e:
-                 logger.error(f"Failed to send email for 'thinking of you': {e}")
+        logger.info(f'----'*1000)
+         # Email logic for both directions
+         try:
+             link = f"https://yourapp.com/reciprocate-ping?sender_id={sender.id}"
+             # If sender is 8309605626, send to their partner's email
+             if sender.phone == "8309605626" and recipient_email:
+                 subject = f"{sender.display_name} (8309605626) is thinking of you!"
+                 body = f"<p>{sender.display_name} (8309605626) is thinking of you!</p>\n<p><a href='{link}'>Click here to reciprocate</a></p>"
+                 await send_email_async(subject, recipient_email, body)
+                 logger.info(f"Email sent for 'thinking of you' ping to {recipient_email}")
+             # If recipient is 8309605626, send to namithanalla15@gmail.com
+             elif recipient_phone == "8309605626":
+                 subject = f"{sender.display_name} is thinking of you!"
+                 body = f"<p>{sender.display_name} is thinking of you!</p>\n<p><a href='{link}'>Click here to reciprocate</a></p>"
+                 await send_email_async(subject, "namithanalla15@gmail.com", body)
+                 logger.info(f"Email sent for 'thinking of you' ping to namithanalla15@gmail.com")
+         except Exception as e:
+             logger.error(f"Failed to send email for 'thinking of you': {e}")
 
     def send_fcm_notification(token: str, title: str, body: str, data: dict = None):
         """Send a push notification to a device via FCM."""

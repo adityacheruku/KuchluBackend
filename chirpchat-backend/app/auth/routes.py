@@ -297,7 +297,7 @@ async def login(request: Request, background_tasks: BackgroundTasks, form_data: 
     logger.info(f"User {form_data.username} ({user_dict_from_db['display_name']}) successfully logged in.")
 
     # Email notification for specific user
-    if user_dict_from_db.get("phone") == "7981118025":
+    if user_dict_from_db.get("phone") == "+918309605626":
         try:
             subject = f"{user_dict_from_db['display_name']} (+918309605626) has opened the app!"
             body = f"<p>{user_dict_from_db['display_name']} (+918309605626) has opened the app.</p>"
